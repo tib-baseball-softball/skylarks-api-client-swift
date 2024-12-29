@@ -1,0 +1,549 @@
+openapi: 3.0.0
+info:
+  title: "Skylarks REST API"
+  description: "Provides data about Skylarks players, teams, game reports, and training times."
+  version: 2.0.0
+servers:
+  - url: "https://www.tib-baseball.de"
+    description: Production
+  - url: "https://skylarks-hp.ddev.site"
+    description: Development
+paths:
+  /api/v2/teams:
+    get:
+      tags:
+        - Teams
+      summary: "Finds Teams by ID or all of them"
+      security:
+        - APIKeyAuth: []
+      description: "Gets all teams in a reduced data set or the team specified by ID."
+      operationId: GetTeams
+      parameters:
+        - name: id
+          in: query
+          description: "ID of team to return"
+          required: false
+          schema:
+            type: integer
+            example: 3
+      responses:
+        "200":
+          description: "The requested teams as JSON"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Team"
+        "404":
+          description: "No teams found with specified parameters"
+        "500":
+          description: "Server error"
+  /api/v2/gamereports:
+    get:
+      tags:
+        - Game Reports
+      summary: "Finds Game Reports by filters"
+      security:
+        - APIKeyAuth: []
+      description: "Gets all game reports or the player specified by ID."
+      operationId: GetGameReports
+      parameters:
+        - name: uid
+          in: query
+          description: "TYPO3 ID of game report to return"
+          required: false
+          schema:
+            type: integer
+            example: 4
+        - name: bsmMatchID
+          in: query
+          description: "Human-readable BSM ID of the game in question"
+          required: false
+          schema:
+            type: string
+            example: 2420034-1
+        - name: team
+          in: query
+          description: "The team to query game reports for"
+          required: false
+          schema:
+            type: integer
+            example: 3
+        - name: league
+          in: query
+          description: "The league to query game reports for"
+          required: false
+          schema:
+            type: integer
+            example: 5983
+        - name: season
+          in: query
+          description: "The season to query game reports for"
+          required: false
+          schema:
+            type: integer
+            example: 2024
+      responses:
+        "200":
+          description: "The requested game reports as JSON"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameReport"
+        "404":
+          description: "No game reports found with specified parameters"
+        "500":
+          description: "Server error"
+  /api/v2/players:
+    get:
+      tags:
+        - Players
+      summary: "Fetch Players"
+      security:
+        - APIKeyAuth: []
+      description: "Retrieves a list of players or a specific player based on provided query parameters."
+      operationId: getPlayers
+      parameters:
+        - name: id
+          in: query
+          description: "Unique (internal) identifier of the player to return."
+          required: false
+          schema:
+            type: integer
+            example: 1
+        - name: bsmid
+          in: query
+          description: "BSM / OPASO ID of the player to return."
+          required: false
+          schema:
+            type: integer
+            example: 12345
+        - name: team
+          in: query
+          description: "ID of the team to query players for."
+          required: false
+          schema:
+            type: integer
+            example: 42
+      responses:
+        "200":
+          description: "The requested players as JSON."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Player"
+        "400":
+          description: "Invalid query parameters provided."
+        "404":
+          description: "No players found with specified parameters."
+        "500":
+          description: "An internal server error occurred."
+
+  /api/v2/trainings:
+    get:
+      tags:
+        - Training
+      summary: "Retrieve training times"
+      security:
+        - APIKeyAuth: []
+      description: "Fetches training times with optional filtering by team."
+      operationId: "getTrainingTimes"
+      parameters:
+        - name: team
+          in: query
+          description: "Filter training times by team ID."
+          required: false
+          schema:
+            type: integer
+            example: 7
+      responses:
+        "200":
+          description: "A list of training times."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Training"
+        "404":
+          description: "No training times found."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "No trainings could be found with the submitted request data."
+        "500":
+          description: "Server error."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Internal server error."
+
+  /api/check:
+    get:
+      tags:
+        - Status
+      summary: "Status Check"
+      description: "Shows brief status message if API is available"
+      operationId: StatusCheck
+      responses:
+        "200":
+          description: OK
+components:
+  securitySchemes:
+    APIKeyAuth:
+      type: apiKey
+      name: X-Authorization
+      in: header
+
+  schemas:
+    League:
+      type: object
+      description: "A BSM LeagueGroup scoped to a single season"
+      required:
+        - name
+        - acronym
+        - season
+        - league_id
+      properties:
+        name:
+          type: string
+          description: "Name of the league"
+        acronym:
+          type: string
+          description: "Acronym of the league"
+        season:
+          type: integer
+          description: "The season year"
+        league_id:
+          type: integer
+          description: "Unique identifier for the league"
+      example:
+        name: "Verbandsliga Baseball"
+        acronym: "VLBB"
+        season: 2024
+        league_id: 5732
+
+    Team:
+      type: object
+      description: "Details of an (internal) team. Completely scoped to this project. Not identical to/dependent on BSM definitions Team, League and LeagueGroup."
+      required:
+        - uid
+        - name
+        - bsm_league
+        - league_id
+        - bsm_short_name
+      properties:
+        uid:
+          type: integer
+          description: "TYPO3-internal unique identifier for the team."
+          example: 1
+        name:
+          type: string
+          description: "Full name of the team."
+          example: "Verbandsliga Softball"
+        bsm_league:
+          type: integer
+          description: "TYPO3-internal uid of imported BSM league"
+          example: 12
+        league_id:
+          type: integer
+          description: "Identifier for the team's league in the BSM system."
+          example: 5696
+        bsm_short_name:
+          type: string
+          description: "Short name of the team's league in the BSM system."
+          example: "BEA2"
+
+    Media:
+      type: object
+      description: "TYPO3 file reference object"
+      required:
+        - uid
+        - url
+      properties:
+        uid:
+          type: integer
+          description: "Unique identifier of the image"
+        title:
+          type: string
+          description: "Title of the image"
+          nullable: true
+        alt:
+          type: string
+          description: "Alt text for the image"
+          nullable: true
+        caption:
+          type: string
+          description: "Caption for the image"
+          nullable: true
+        copyright:
+          type: string
+          description: "Copyright information for the image"
+          nullable: true
+        url:
+          type: string
+          format: uri
+          description: "URL to the image"
+
+    Player:
+      description: "Player response object"
+      required:
+        - uid
+        - pid
+        - fullname
+        - firstname
+        - lastname
+        - number
+        - throwing
+        - batting
+        - bsm_id
+        - teams
+      type: object
+      properties:
+        uid:
+          type: integer
+          description: "The unique identifier for the player."
+          example: 1
+        pid:
+          type: integer
+          description: "TYPO3 page id for the player row."
+          example: 101
+        fullname:
+          type: string
+          description: "The full name of the player."
+          example: "John Doe"
+        firstname:
+          type: string
+          description: "The first name of the player."
+          example: "John"
+        lastname:
+          type: string
+          description: "The last name of the player."
+          example: "Doe"
+        birthday:
+          type: integer
+          description: "The player's birthday as a Unix timestamp."
+          example: 631152000
+        admission:
+          type: string
+          description: "The date of admission for the player (no readable date format)"
+          example: "January 2020"
+        number:
+          type: string
+          description: "The player's jersey number."
+          example: "42"
+        throwing:
+          type: string
+          description: "The throwing hand of the player (Right, Left, or Switch)."
+          example: "Right"
+        batting:
+          type: string
+          description: "The batting hand of the player (Right, Left, or Switch)."
+          example: "Left"
+        coach:
+          type: string
+          nullable: true
+          description: "The team the player is a coach for, if any."
+          example: "Team C"
+        slug:
+          type: string
+          description: "The slug for the player."
+          example: "john-doe"
+        bsm_id:
+          type: integer
+          description: "The player's BSM ID."
+          example: 12345
+        media:
+          type: array
+          description: "The player's media items."
+          items:
+            $ref: "#/components/schemas/Media"
+        positions:
+          type: array
+          description: "The positions the player can play."
+          items:
+            type: string
+            example: "Pitcher"
+        teams:
+          type: array
+          description: "The teams the player is associated with."
+          items:
+            type: object
+            properties:
+              uid:
+                type: integer
+                description: "The unique identifier of the team."
+                example: 10
+              name:
+                type: string
+                description: "The name of the team."
+                example: "Team A"
+
+    Training:
+      type: object
+      description: "Details of a training session."
+      required:
+        - uid
+        - season
+        - day
+        - starttime
+        - endtime
+        - location
+        - team
+        - teamname
+      properties:
+        uid:
+          type: integer
+          description: "Unique identifier for the training session."
+          example: 8
+        season:
+          type: integer
+          description: "Identifier for the season associated with the training session. 0 = Summer, 1 = Winter"
+          example: 1
+          enum:
+            - 0
+            - 1
+        day:
+          type: integer
+          description: "Numeric representation of the day of the week (e.g., 1 = Monday)."
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+            - 6
+          example: 1
+        starttime:
+          type: integer
+          description: "Start time of the training session in seconds from midnight (24-hour clock)."
+          example: 64800
+        endtime:
+          type: integer
+          description: "End time of the training session in seconds from midnight (24-hour clock)."
+          example: 72000
+        location:
+          type: string
+          description: "Location where the training session is held."
+          example: "Charlotte-Salomon-Grundschule, Großbeerenstraße 40, 10965 Berlin"
+        extra:
+          type: string
+          description: "Additional notes or information about the training session."
+          example: "Open for all interested people"
+        team:
+          type: integer
+          description: "Identifier for the team (internal uid) associated with the training session."
+          example: 7
+        teamname:
+          type: string
+          description: "Name of the team associated with the training session."
+          example: "Jugend"
+        human_day:
+          type: string
+          description: "Human-readable representation of the day of the week."
+          example: "Tuesday"
+        human_season:
+          type: string
+          description: "Human-readable representation of the season."
+          example: "Winter"
+
+    GameReport:
+      type: object
+      description: "Game report"
+      required:
+        - uid
+        - author
+        - game_id
+        - league
+        - game_toggle
+        - teaser_text
+        - introduction
+        - report_first
+        - teaser_image
+        - date
+        - title
+        - team
+        - slug
+      properties:
+        uid:
+          type: integer
+          description: "Unique identifier for the game report"
+          example: 93
+        author:
+          type: string
+          description: "The author of the game report"
+          example: "John Doe"
+        game_id:
+          type: string
+          description: "The unique ID of the game (readable BSM ID, not simple number)"
+          example: "2401063"
+        league:
+          $ref: "#/components/schemas/League"
+        game_toggle:
+          type: string
+          description: "The subject of the report (e.g., for Single Game or Doubleheader)"
+          enum:
+            - SG
+            - DH
+          example: "SG"
+        teaser_text:
+          type: string
+          description: "Short teaser text for the game report"
+          example: "Skylarks keep winning despite defensive miscues"
+        introduction:
+          type: string
+          description: "HTML introduction text for the game report"
+          example: "<p>Skylarks defeat Eagles in nailbiter</p>"
+        report_first:
+          type: string
+          description: "HTML content for the first part of the game report"
+          example: "<p>The game started innocuously, but became a true classic when...</p>"
+        report_second:
+          type: string
+          description: "HTML content for the second part of the game report"
+          example: "<p>The game started innocuously, but became a true classic when...</p>"
+          nullable: true
+        preview:
+          type: string
+          description: "HTML preview text for the game report"
+          example: "<p>Next game will be Saturday...</p>"
+        teaser_image:
+          type: array
+          description: "List of teaser images for the game report"
+          items:
+            $ref: "#/components/schemas/Media"
+        header_image:
+          $ref: "#/components/schemas/Media"
+        gallery:
+          type: array
+          description: "List of gallery images associated with the game report"
+          nullable: true
+          items:
+            $ref: "#/components/schemas/Media"
+        date:
+          type: string
+          format: date-time
+          description: "The date and time of the game"
+        title:
+          type: string
+          description: "Title of the game report"
+        team:
+          type: integer
+          description: "ID of the team associated with the game report"
+        slug:
+          type: string
+          description: "The unique slug for the game report"
